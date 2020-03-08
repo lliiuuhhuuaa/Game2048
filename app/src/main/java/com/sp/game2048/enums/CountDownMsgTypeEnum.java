@@ -6,6 +6,8 @@ package com.sp.game2048.enums;
 public enum CountDownMsgTypeEnum {
     UPDATE_NUMBER(1),
     GAME_OVER(2),
+    PLAY_SOUND_COMPOUND(3),
+    VIBRATE(4),
     ;
     private Integer value;
     CountDownMsgTypeEnum(Integer value){

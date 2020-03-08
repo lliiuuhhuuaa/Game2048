@@ -170,8 +170,16 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
         Button buttonWithTag = layoutBox.findViewById(id);
         int[] source = (int[]) buttonWithTag.getTag();
         if(source[2]!=tag[2]){
+            Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.VIBRATE.getValue());
+            message.obj = GameActivity.this;
+            message.getData().putInt("time",250);
+            handleMessage.sendMessage(message);
             return;
         }
+        Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.PLAY_SOUND_COMPOUND.getValue());
+        message.obj = GameActivity.this;
+        message.getData().putInt("sound",R.raw.compound);
+        handleMessage.sendMessage(message);
         int sum = source[2]+tag[2];
         buttonWithTag.setText(String.valueOf(sum));
         source[2] = sum;
@@ -239,6 +247,10 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                     Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.GAME_OVER.getValue());
                     message.getData().putInt("score",total);
                     message.obj = GameActivity.this;
+                    handleMessage.sendMessage(message);
+                    message = Message.obtain(handleMessage, CountDownMsgTypeEnum.PLAY_SOUND_COMPOUND.getValue());
+                    message.obj = GameActivity.this;
+                    message.getData().putInt("sound",R.raw.game_over);
                     handleMessage.sendMessage(message);
                     countDownThread.quitSafely();
                     return;

@@ -3,8 +3,11 @@ package com.sp.game2048.handle;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
+import android.media.MediaPlayer;
+import android.media.SoundPool;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Vibrator;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
@@ -40,6 +43,16 @@ public class HandleMessage extends Handler {
                 }
             });
             dialog.show();
+        }else if(msg.what==CountDownMsgTypeEnum.PLAY_SOUND_COMPOUND.getValue()){
+            final Context context = (Context) msg.obj;
+            int sound = msg.getData().getInt("sound");
+            MediaPlayer  mPlayer = MediaPlayer.create(context,sound);
+            mPlayer.start();
+        }else if(msg.what==CountDownMsgTypeEnum.VIBRATE.getValue()){
+            final Context context = (Context) msg.obj;
+            int time = msg.getData().getInt("time",500);
+            Vibrator vibrator = (Vibrator)context.getSystemService(context.VIBRATOR_SERVICE);
+            vibrator.vibrate(time);
         }
     }
 }
