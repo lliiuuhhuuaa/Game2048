@@ -3,16 +3,16 @@ package com.sp.game2048;
 import android.annotation.TargetApi;
 import android.content.res.Resources;
 import android.graphics.Color;
-import android.graphics.drawable.ClipDrawable;
-import android.graphics.drawable.ColorDrawable;
+import android.graphics.PorterDuff;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.support.annotation.RequiresApi;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.view.Gravity;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -26,6 +26,7 @@ import android.widget.Toast;
 import com.sp.game2048.enums.CountDownMsgTypeEnum;
 import com.sp.game2048.enums.CountDownStateEnum;
 import com.sp.game2048.handle.HandleMessage;
+import com.sp.game2048.util.ThreadPool;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -40,6 +41,9 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
     private int topHeight;
     //分数
     private int total = 0;
+    private boolean start = false;
+    HandlerThread countDownThread = null;
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -50,7 +54,21 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
         //初始化视图
         initView();
         //开启一个线程倒计时
-        countDown(CountDownStateEnum.START.getState());
+        ThreadPool.createNewThread(new Runnable() {
+            @Override
+            public void run() {
+                Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.START_321.getValue());
+                message.obj = new Object[]{GameActivity.this,new Runnable() {
+                    @Override
+                    public void run() {
+                        countDown(CountDownStateEnum.START.getState());
+                    }
+                },handleMessage};
+                message.getData().putInt("num",3);
+                handleMessage.sendMessage(message);
+            }
+        });
+
     }
 
     /***
@@ -62,7 +80,7 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,0.2f);
         LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.MATCH_PARENT,0.2f);
         LinearLayout linearLayout = null;
-
+        String text = null;
         for(int i=0;i<7;i++){
             linearLayout = new LinearLayout(this);
             linearLayout.setLayoutParams(layoutParams);
@@ -75,8 +93,12 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                 button.setOnTouchListener(this);
                 int val = numbs[Double.valueOf(Math.random()*numbs.length).intValue()];
                 button.setTag(new int[]{j,i,val});
-                button.setText(String.valueOf(val));
+                text = String.valueOf(val);
+                button.setText(text);
+                button.setTextColor(this.getColor(R.color.colorText));
                 button.setId(id);
+                button.setBackgroundResource(R.drawable.button_border);
+                button.getBackground().setColorFilter(ContextCompat.getColor(this,this.getResources().getIdentifier(String.format("grid_color_%s", text), "color", this.getPackageName())),PorterDuff.Mode.ADD);
                 linearLayout.addView(button);
             }
         }
@@ -93,6 +115,9 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
      */
     @Override
     public boolean onTouch(View v, MotionEvent event) {
+        if(!start){
+            return false;
+        }
         Button buttonView = (Button) v;
         if(event.getAction()==MotionEvent.ACTION_DOWN){
             moveButton.setText(buttonView.getText());
@@ -101,6 +126,7 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
             moveButton.setX(event.getRawX()-event.getX());
             moveButton.setY(event.getRawY()-event.getY()-topHeight);
             moveButton.setVisibility(View.VISIBLE);
+            moveButton.setBackground(buttonView.getBackground());
             position[0] = event.getRawX();
             position[1] = event.getRawY();
             position[2] = 0;
@@ -181,13 +207,19 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
         message.getData().putInt("sound",R.raw.compound);
         handleMessage.sendMessage(message);
         int sum = source[2]+tag[2];
-        buttonWithTag.setText(String.valueOf(sum));
+        String text = String.valueOf(sum);
+        buttonWithTag.setText(text);
+        buttonWithTag.getBackground().setColorFilter(Color.BLACK,PorterDuff.Mode.CLEAR);
+        buttonWithTag.getBackground().setColorFilter(ContextCompat.getColor(this,this.getResources().getIdentifier(String.format("grid_color_%s", text), "color", this.getPackageName())),PorterDuff.Mode.ADD);
         source[2] = sum;
         total+=sum;
         scoreNum.setText(String.valueOf(total));
         int val = numbs[Double.valueOf(Math.random()*numbs.length).intValue()];
         tag[2] = val;
-        button.setText(String.valueOf(val));
+        text = String.valueOf(val);
+        button.setText(text);
+        button.getBackground().setColorFilter(Color.BLACK,PorterDuff.Mode.CLEAR);
+        button.getBackground().setColorFilter(ContextCompat.getColor(this,this.getResources().getIdentifier(String.format("grid_color_%s", text), "color", this.getPackageName())),PorterDuff.Mode.ADD);
     }
 
     /***
@@ -199,24 +231,20 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
         final AtomicInteger atomicInteger = new AtomicInteger(state);
         final ProgressBar progressBar = findViewById(R.id.countDownProgressBar);
         final TextView textView = findViewById(R.id.countDownNumber);
-        ClipDrawable clipDrawable = new ClipDrawable(new ColorDrawable(Color.parseColor("#007bff")), Gravity.LEFT, ClipDrawable.HORIZONTAL);
-        final ColorDrawable drawable = (ColorDrawable) clipDrawable.getDrawable();
-        progressBar.setProgressDrawable(clipDrawable);
-        progressBar.setMax(60);
-        progressBar.setProgress(61,true);
-        progressBar.setBackgroundColor(Color.parseColor("#CCCCCC"));
-        textView.setText("60");
-        startTime(atomicInteger, progressBar, textView, drawable);
+        textView.setText(String.valueOf(progressBar.getProgress()));
+        startTime(atomicInteger, progressBar, textView);
         findViewById(R.id.pause).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if(CountDownStateEnum.PAUSE.getState().equals(atomicInteger.get())) {
                     ((Button)v).setText("暂停");
                     atomicInteger.set(CountDownStateEnum.START.getState());
-                    startTime(atomicInteger,progressBar,textView,drawable);
+                    startTime(atomicInteger,progressBar,textView);
+                    start = true;
                 }else{
                     ((Button)v).setText("继续");
                     atomicInteger.set(CountDownStateEnum.PAUSE.getState());
+                    start = false;
                 }
             }
         });
@@ -227,10 +255,9 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
      * @param atomicInteger
      * @param progressBar
      * @param textView
-     * @param drawable
      */
-    private void startTime(final AtomicInteger atomicInteger, final ProgressBar progressBar, final TextView textView, final ColorDrawable drawable) {
-        final HandlerThread countDownThread = new HandlerThread("CountDownThread");
+    private void startTime(final AtomicInteger atomicInteger, final ProgressBar progressBar, final TextView textView) { ;
+        countDownThread = new HandlerThread("CountDownThread");
         countDownThread.setPriority(Thread.MIN_PRIORITY);
         countDownThread.start();
         final Handler handler = new Handler(countDownThread.getLooper());
@@ -242,7 +269,12 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                     countDownThread.quitSafely();
                     return;
                 }
-                int progress = progressBar.getProgress()-1;
+                int progress = progressBar.getProgress();
+                if(start=false&&progress==progressBar.getMax()){
+                    progress++;
+                }
+                start = true;
+                progress = progress-1;
                 if(progress<0){
                     Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.GAME_OVER.getValue());
                     message.getData().putInt("score",total);
@@ -261,11 +293,6 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                 }else{
                     progressBar.setProgress(progress);
                 }
-                if(progress<10){
-                    drawable.setColor(Color.parseColor("#dc3546"));
-                }else if(progress<20){
-                    drawable.setColor(Color.parseColor("#ffc108"));
-                }
                 Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.UPDATE_NUMBER.getValue());
                 message.getData().putString("number",String.valueOf(progress));
                 message.obj = textView;
@@ -273,7 +300,7 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                 handler.postDelayed(this,1000);
             }
         };
-        handler.post(countDownWork);
+        handler.postDelayed(countDownWork,1000);
     }
     private long firstClickBack = 0;
     @Override
@@ -285,10 +312,15 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                 firstClickBack = secondClickBack;
                 return true;
             }else{
+                if(countDownThread!=null&&countDownThread.isAlive()) {
+                    start = false;
+                    countDownThread.quitSafely();
+                }
                 return super.onKeyDown(keyCode, event);
             }
         }
         return super.onKeyDown(keyCode, event);
     }
+
 }
 

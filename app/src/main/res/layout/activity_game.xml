@@ -47,14 +47,17 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/pause_button"
-                            android:textSize="30sp" />
+                            android:textSize="20sp"
+                            android:textColor="@color/colorText"
+                            android:background="@color/colorButton"/>
                     </LinearLayout>
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:layout_marginTop="10dp">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -70,13 +73,14 @@
                         android:layout_marginEnd="10dp"
                         android:layout_weight="0.8"
                         android:max="60"
-                        android:progress="60" />
+                        android:progress="61"
+                        android:progressDrawable="@drawable/progress_style"/>
 
                     <TextView
                         android:id="@+id/countDownNumber"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/_60" />
+                        android:text="@string/_0"/>
                 </LinearLayout>
             </LinearLayout>
             <!--游戏框架-->

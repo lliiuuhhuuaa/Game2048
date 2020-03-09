@@ -8,6 +8,7 @@ public enum CountDownMsgTypeEnum {
     GAME_OVER(2),
     PLAY_SOUND_COMPOUND(3),
     VIBRATE(4),
+    START_321(5),
     ;
     private Integer value;
     CountDownMsgTypeEnum(Integer value){
