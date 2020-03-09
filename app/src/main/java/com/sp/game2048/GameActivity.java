@@ -300,7 +300,7 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                 handler.postDelayed(this,1000);
             }
         };
-        handler.postDelayed(countDownWork,1000);
+        handler.post(countDownWork);
     }
     private long firstClickBack = 0;
     @Override
