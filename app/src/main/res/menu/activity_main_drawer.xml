@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:showIn="navigation_view">
+
+    <group android:checkableBehavior="single" >
+<!--        <item-->
+<!--            android:id="@+id/update_password"-->
+<!--            android:icon="@mipmap/password"-->
+<!--            android:title="修改密码" />-->
+        <item
+            android:id="@+id/ranking"
+            android:icon="@mipmap/ranking"
+            android:title="分数排行榜" />
+        <item
+            android:id="@+id/history"
+            android:icon="@mipmap/history"
+            android:title="我的分数记录" />
+        <item
+            android:id="@+id/about"
+            android:icon="@mipmap/setting"
+            android:title="关于我们" />
+        <item
+            android:id="@+id/quit_account"
+            android:icon="@mipmap/quit_account"
+            android:title="退出账号"
+            />
+    </group>
+</menu>

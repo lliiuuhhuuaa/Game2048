@@ -1,6 +1,7 @@
 package com.sp.game2048;
 
 import android.annotation.TargetApi;
+import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
@@ -9,10 +10,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
-import android.support.annotation.RequiresApi;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -21,14 +18,19 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.sp.game2048.enums.CountDownMsgTypeEnum;
 import com.sp.game2048.enums.CountDownStateEnum;
 import com.sp.game2048.handle.HandleMessage;
-import com.sp.game2048.util.ThreadPool;
+import com.sp.game2048.util.AlertUtil;
+import com.sp.game2048.util.ClassUtil;
 
 import java.util.concurrent.atomic.AtomicInteger;
+
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import cn.pedant.SweetAlert.SweetAlertDialog;
 
 public class GameActivity extends AppCompatActivity implements View.OnTouchListener {
     private static final String TAG = "game";
@@ -52,29 +54,26 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
         int resourceId = resources.getIdentifier("status_bar_height","dimen","android");
         topHeight = resources.getDimensionPixelSize(resourceId);
         //初始化视图
-        initView();
+        Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.CALL_BACK.getValue());
+        message.obj = new Object[]{GameActivity.class};
+        message.getData().putString("method", "initView");
+        handleMessage.sendMessage(message);
         //开启一个线程倒计时
-        ThreadPool.createNewThread(new Runnable() {
-            @Override
-            public void run() {
-                Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.START_321.getValue());
-                message.obj = new Object[]{GameActivity.this,new Runnable() {
-                    @Override
-                    public void run() {
-                        countDown(CountDownStateEnum.START.getState());
-                    }
-                },handleMessage};
-                message.getData().putInt("num",3);
-                handleMessage.sendMessage(message);
-            }
-        });
+        message = Message.obtain(handleMessage, CountDownMsgTypeEnum.START_321.getValue());
+        message.obj = new Object[]{GameActivity.this, (Runnable) () -> countDown(CountDownStateEnum.START.getState()),handleMessage};
+        message.getData().putInt("num",3);
+        handleMessage.sendMessage(message);
+        //初始化
+        init();
 
     }
-
+    private void init() {
+        ClassUtil.push(this);
+    }
     /***
      * 初始化视图
      */
-    private void initView() {
+    public void initView() {
         scoreNum = findViewById(R.id.score_num);
         layoutBox = findViewById(R.id.layout_box);
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,0.2f);
@@ -132,6 +131,9 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
             position[2] = 0;
             v.setAlpha(0.5f);
         }else if(event.getAction()==MotionEvent.ACTION_UP){
+            if(!start){
+                return true;
+            }
             moveButton.setVisibility(View.GONE);
             v.setAlpha(1f);
             float x = event.getRawX() - position[0];
@@ -233,19 +235,16 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
         final TextView textView = findViewById(R.id.countDownNumber);
         textView.setText(String.valueOf(progressBar.getProgress()));
         startTime(atomicInteger, progressBar, textView);
-        findViewById(R.id.pause).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(CountDownStateEnum.PAUSE.getState().equals(atomicInteger.get())) {
-                    ((Button)v).setText("暂停");
-                    atomicInteger.set(CountDownStateEnum.START.getState());
-                    startTime(atomicInteger,progressBar,textView);
-                    start = true;
-                }else{
-                    ((Button)v).setText("继续");
-                    atomicInteger.set(CountDownStateEnum.PAUSE.getState());
-                    start = false;
-                }
+        findViewById(R.id.pause).setOnClickListener(v -> {
+            if(CountDownStateEnum.PAUSE.getState().equals(atomicInteger.get())) {
+                ((Button)v).setText("暂停");
+                atomicInteger.set(CountDownStateEnum.START.getState());
+                startTime(atomicInteger,progressBar,textView);
+                start = true;
+            }else{
+                ((Button)v).setText("继续");
+                atomicInteger.set(CountDownStateEnum.PAUSE.getState());
+                start = false;
             }
         });
     }
@@ -275,8 +274,20 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                 }
                 start = true;
                 progress = progress-1;
-                if(progress<0){
-                    Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.GAME_OVER.getValue());
+                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
+                    progressBar.setProgress(progress,true);
+                }else{
+                    progressBar.setProgress(progress);
+                }
+
+                Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.UPDATE_NUMBER.getValue());
+                message.getData().putString("number",String.valueOf(progress));
+                message.obj = textView;
+                handleMessage.sendMessage(message);
+                handler.postDelayed(this,1000);
+                if(progress<=0){
+                    start = false;
+                    message = Message.obtain(handleMessage, CountDownMsgTypeEnum.GAME_OVER.getValue());
                     message.getData().putInt("score",total);
                     message.obj = GameActivity.this;
                     handleMessage.sendMessage(message);
@@ -288,16 +299,6 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                     return;
                 }
 
-                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
-                    progressBar.setProgress(progress,true);
-                }else{
-                    progressBar.setProgress(progress);
-                }
-                Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.UPDATE_NUMBER.getValue());
-                message.getData().putString("number",String.valueOf(progress));
-                message.obj = textView;
-                handleMessage.sendMessage(message);
-                handler.postDelayed(this,1000);
             }
         };
         handler.post(countDownWork);
@@ -306,21 +307,43 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if(keyCode == KeyEvent.KEYCODE_BACK){
-            long secondClickBack = System.currentTimeMillis();
-            if(secondClickBack - firstClickBack >1500){
-                Toast.makeText(this, "再一次确认并退出", Toast.LENGTH_SHORT).show();
-                firstClickBack = secondClickBack;
-                return true;
-            }else{
-                if(countDownThread!=null&&countDownThread.isAlive()) {
-                    start = false;
-                    countDownThread.quitSafely();
-                }
-                return super.onKeyDown(keyCode, event);
-            }
+//            long secondClickBack = System.currentTimeMillis();
+//            if(secondClickBack - firstClickBack >1500){
+//                Toast.makeText(this, "再一次确认并退出", Toast.LENGTH_SHORT).show();
+//                firstClickBack = secondClickBack;
+//                return true;
+//            }else{
+//                if(countDownThread!=null&&countDownThread.isAlive()) {
+//                    start = false;
+//                    countDownThread.quitSafely();
+//                }
+//                return super.onKeyDown(keyCode, event);
+//            }
+            return false;
         }
         return super.onKeyDown(keyCode, event);
     }
+    /**
+     * @do 返水主页
+     * @author liuhua
+     * @date 2020/3/16 8:43 PM
+     */
+    public void backHome(View view) {
+        SweetAlertDialog sweetAlertDialog = new SweetAlertDialog(this);
+        sweetAlertDialog.setContentText("确定返回主页吗?");
+        sweetAlertDialog.setCancelText("取消").setConfirmText("确定返回").setConfirmClickListener(sweetAlertDialog1 -> {
+            finish();
+        });
+        AlertUtil.alertOther(sweetAlertDialog);
+    }
 
+    @Override
+    public void recreate() {
+        final ProgressBar progressBar = findViewById(R.id.countDownProgressBar);
+        progressBar.setProgress(61);
+        final TextView textView = findViewById(R.id.countDownNumber);
+        textView.setText("60");
+        super.recreate();
+    }
 }
 
