@@ -4,11 +4,13 @@ import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.os.Handler;
 import android.os.Message;
 import android.telephony.TelephonyManager;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -17,7 +19,6 @@ import android.widget.Toast;
 import com.alibaba.fastjson.JSONObject;
 import com.sp.game2048.MainActivity;
 import com.sp.game2048.R;
-import com.sp.game2048.entity.PhoneInfo;
 import com.sp.game2048.enums.CountDownMsgTypeEnum;
 import com.sp.game2048.enums.ResultCodeEnum;
 import com.sp.game2048.game.service.GameService;
@@ -27,15 +28,20 @@ import com.sp.game2048.socket.entity.SocketMessage;
 import com.sp.game2048.socket.enums.MsgHandleTypeEnum;
 import com.sp.game2048.socket.enums.UserSocketCodeEnum;
 import com.sp.game2048.socket.service.SocketService;
+import com.sp.game2048.socket.util.SocketUtil;
+import com.sp.game2048.user.enums.SmsTypeEnum;
 import com.sp.game2048.util.AlertUtil;
 import com.sp.game2048.util.ClassUtil;
 import com.sp.game2048.util.HttpClientUtil;
+import com.sp.game2048.util.ThreadPool;
 import com.sp.game2048.util.UserUtil;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 
+import androidx.appcompat.widget.AppCompatButton;
 import androidx.core.app.ActivityCompat;
 import cn.pedant.SweetAlert.SweetAlertDialog;
 import okhttp3.Call;
@@ -52,44 +58,102 @@ import static android.content.Context.MODE_PRIVATE;
  */
 public class UserService {
     /**
+     * @do 用户注册
+     * @author liuhua
+     * @date 2020/3/11 9:24 PM
+     */
+    public void register() {
+        MainActivity mainActivity = ClassUtil.get(MainActivity.class);
+        View inflate = mainActivity.getLayoutInflater().inflate(R.layout.register, null);
+        SweetAlertDialog sweetAlertDialog = new SweetAlertDialog(ClassUtil.get(MainActivity.class), SweetAlertDialog.CUSTOM_IMAGE_TYPE)
+                .setTitleText("注册账号")
+                .setCustomView(inflate)
+                .setConfirmText("注册").setNeutralButton("已有账号?", sweetAlertDialog13 -> {
+                    sweetAlertDialog13.cancel();
+                    login();
+                })
+                .setCancelText("取消");
+        sendSmsEvent(inflate, SmsTypeEnum.REGISTER.getValue());
+        sweetAlertDialog.setCancelable(false);
+        sweetAlertDialog.setConfirmClickListener(sweetAlertDialog1 -> {
+            TextView viewById = inflate.findViewById(R.id.phone);
+            String phone = viewById.getText().toString();
+            if(!phone.matches("^[1][0-9]{10}$")){
+                AlertUtil.toast("手机号码格式错误",Toast.LENGTH_SHORT);
+                return;
+            }
+            viewById = inflate.findViewById(R.id.code);
+            String code = viewById.getText().toString();
+            if(!code.matches("^[0-9]{4,6}$")){
+                AlertUtil.toast("验证码错误",Toast.LENGTH_SHORT);
+                return;
+            }
+            viewById = inflate.findViewById(R.id.password);
+            String password = viewById.getText().toString();
+            if(password.length()<6||password.length()>20){
+                AlertUtil.toast("密码格式需:6-20位",Toast.LENGTH_SHORT);
+                return;
+            }
+            viewById = inflate.findViewById(R.id.password2);
+            if(!password.equals(viewById.getText().toString())){
+                AlertUtil.toast("两次密码输入不一致",Toast.LENGTH_SHORT);
+                return;
+            }
+            SweetAlertDialog alertProcess = AlertUtil.alertProcess();
+            FormBody formBody = new FormBody.Builder().add("password", password).add("phone", phone).add("code",code).build();
+            HttpClientUtil.post("/show/user/register", formBody, new CallbackHandle(alertProcess) {
+                @Override
+                public void onSuccess(JSONObject jsonObject) {
+                    if (ResultCodeEnum.OK.getValue().equals(jsonObject.getInteger("code"))) {
+                        UserUtil.saveToken(jsonObject.getString("data"));
+                        AlertUtil.toast("注册完成,自动登陆成功",Toast.LENGTH_SHORT);
+                        sweetAlertDialog1.cancel();
+                        init();
+                    }else{
+                        AlertUtil.toast(jsonObject.getString("msg"),Toast.LENGTH_SHORT);
+                    }
+                }
+            });
+        });
+        AlertUtil.alertOther(sweetAlertDialog);
+        return;
+    }
+    /**
+     * @do 验证码倒计时
+     * @author liuhua
+     * @date 2020/3/21 1:40 PM
+     */
+    public void smsCodeTime(AppCompatButton view,Integer time){
+        if(time<1){
+            view.setText("发送验证码");
+            view.setEnabled(true);
+            return;
+        }
+        view.setText(String.format("%d秒后重发",time));
+        Handler handler = new Handler();
+        handler.postDelayed(() -> {
+            HandleMessage handleMessage = ClassUtil.get(HandleMessage.class);
+            Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.CALL_BACK.getValue());
+            message.obj = new Object[]{UserService.class,view,time-1};
+            message.getData().putString("method","smsCodeTime");
+            handleMessage.sendMessage(message);
+        },1000);
+    }
+    /**
      * @do 用户登陆
      * @author liuhua
      * @date 2020/3/11 9:24 PM
      */
     public void login() {
-        Context context = ClassUtil.get(MainActivity.class);
-        final PhoneInfo phoneInfo = HttpClientUtil.phoneInfo;
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
-            AlertUtil.toast("登陆失败:没有权限获取到手机信息", Toast.LENGTH_LONG);
-            return;
-        }
-        TelephonyManager tm = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-        String mac = null;
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            mac = tm.getImei();
-        } else {
-            mac = tm.getSimSerialNumber();
-        }
-        String phone = tm.getLine1Number();
-        if(mac==null){
-            mac = UserUtil.getMac();
-        }
-        if(mac==null){
-            mac = phone;
-        }
-        if (phone == null) {
-            AlertUtil.toast("登陆失败:无法获取到手机信息", Toast.LENGTH_LONG);
-            return;
-        }
-        if (phone.length() > 11) {
-            phone = phone.substring(phone.length() - 11);
-        }
-        phoneInfo.setPhone(phone);
-        phoneInfo.setMac(mac);
+        MainActivity mainActivity = ClassUtil.get(MainActivity.class);
+        View inflate = mainActivity.getLayoutInflater().inflate(R.layout.user_login, null);
         SweetAlertDialog sweetAlertDialog = new SweetAlertDialog(ClassUtil.get(MainActivity.class), SweetAlertDialog.CUSTOM_IMAGE_TYPE)
                 .setTitleText("快速登陆")
-                .setContentText(String.format("[%s]<br/>使用本机号码一键登陆码？", phone.replaceAll("^([0-9]{3}).*([0-9]{4})$", "$1****$2")))
-                .setConfirmText("登陆")
+                .setCustomView(inflate)
+                .setConfirmText("登陆").setNeutralButton("忘记密码?", sweetAlertDialog13 -> {
+                    sweetAlertDialog13.cancel();
+                    resetPassword();
+                })
                 .setCancelText("取消");
         sweetAlertDialog.setCancelable(false);
         sweetAlertDialog.setCancelClickListener(sweetAlertDialog12 -> {
@@ -98,9 +162,21 @@ public class UserService {
         });
         sweetAlertDialog.setConfirmClickListener(sweetAlertDialog1 -> {
             sweetAlertDialog1.cancel();
+            TextView viewById = inflate.findViewById(R.id.phone);
+            String phone = viewById.getText().toString();
+            if(!phone.matches("^[1][0-9]{10}$")){
+                AlertUtil.toast("手机号码格式错误",Toast.LENGTH_SHORT);
+                return;
+            }
+            viewById = inflate.findViewById(R.id.password);
+            String password = viewById.getText().toString();
+            if(password.length()<6||password.length()>20){
+                AlertUtil.toast("密码错误",Toast.LENGTH_SHORT);
+                return;
+            }
             SweetAlertDialog alertProcess = AlertUtil.alertProcess();
-            FormBody formBody = new FormBody.Builder().add("mac", phoneInfo.getMac()).add("phone", phoneInfo.getPhone()).build();
-            HttpClientUtil.post("/show/user/g2048/login", formBody, new CallbackHandle(alertProcess) {
+            FormBody formBody = new FormBody.Builder().add("password", password).add("account", phone).build();
+            HttpClientUtil.post("/user/login", formBody, new CallbackHandle(alertProcess) {
                 @Override
                 public void onSuccess(JSONObject jsonObject) {
                     if (ResultCodeEnum.OK.getValue().equals(jsonObject.getInteger("code"))) {
@@ -209,12 +285,10 @@ public class UserService {
         HttpClientUtil.post("/user/unlogin", new Callback() {
             @Override
             public void onFailure(@NotNull Call call, @NotNull IOException e) {
-
             }
-
             @Override
             public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
-
+                ClassUtil.get(SocketService.class).disConnect();
             }
         });
         MainActivity mainActivity = ClassUtil.get(MainActivity.class);
@@ -239,41 +313,35 @@ public class UserService {
      */
     public void updatePassword() {
         MainActivity mainActivity = ClassUtil.get(MainActivity.class);
-        LinearLayout linearLayout = new LinearLayout(mainActivity);
-        linearLayout.setOrientation(LinearLayout.VERTICAL);
-        EditText password1 = new EditText(mainActivity);
-        password1.setSingleLine(true);
-        password1.setTextSize(20f);
-        password1.setGravity(Gravity.CENTER);
-        password1.setInputType(InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        password1.setBackgroundResource(R.drawable.edit_style);
-        password1.setHint("输入新密码");
-        linearLayout.addView(password1);
-        EditText password2 = new EditText(mainActivity);
-        password2.setSingleLine(true);
-        password2.setTextSize(20f);
-        password2.setGravity(Gravity.CENTER);
-        password2.setHint("再次输入新密码");
-        password2.setInputType(InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-        password2.setBackgroundResource(R.drawable.edit_style);
-        linearLayout.addView(password2);
-        SweetAlertDialog sweetAlertDialog = new SweetAlertDialog(mainActivity);
-        sweetAlertDialog.setTitle("修改密码");
-        sweetAlertDialog.setCustomView(linearLayout);
-        sweetAlertDialog.setConfirmText("确认修改");
+        View inflate = mainActivity.getLayoutInflater().inflate(R.layout.update_password, null);
+        SweetAlertDialog sweetAlertDialog = new SweetAlertDialog(ClassUtil.get(MainActivity.class), SweetAlertDialog.CUSTOM_IMAGE_TYPE)
+                .setTitleText("修改密码")
+                .setCustomView(inflate)
+                .setConfirmText("修改")
+                .setCancelText("取消");
+        sweetAlertDialog.setCancelable(false);
         sweetAlertDialog.setConfirmClickListener(sweetAlertDialog1 -> {
-            String p1 = password1.getText().toString();
-            String p2 = password2.getText().toString();
-            if(p1==null||p1.length()<6||p1.length()>20){
+            sweetAlertDialog1.cancel();
+            TextView viewById = inflate.findViewById(R.id.oldPassword);
+            String oldPassword = viewById.getText().toString();
+            if(StringUtils.isBlank(oldPassword)){
                 AlertUtil.toast("密码格式错误",Toast.LENGTH_SHORT);
                 return;
             }
-            if(!p1.equals(p2)){
-                AlertUtil.toast("两次密码不一致",Toast.LENGTH_SHORT);
+            viewById = inflate.findViewById(R.id.password);
+            String password = viewById.getText().toString();
+            if(password.length()<6||password.length()>20){
+                AlertUtil.toast("密码格式需:6-20位",Toast.LENGTH_SHORT);
+                return;
+            }
+            viewById = inflate.findViewById(R.id.password2);
+            if(!password.equals(viewById.getText().toString())){
+                AlertUtil.toast("两次密码输入不一致",Toast.LENGTH_SHORT);
                 return;
             }
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("password",p1);
+            jsonObject.put("password",password);
+            jsonObject.put("oldPassword",oldPassword);
             SweetAlertDialog alertProcess = AlertUtil.alertProcess();
             ClassUtil.get(SocketService.class).sendMessage(MsgHandleTypeEnum.USER.getValue(), new SocketMessage(UserSocketCodeEnum.UPDATE_PASSWORD.getValue(),jsonObject), args -> {
                 alertProcess.cancel();
@@ -287,5 +355,105 @@ public class UserService {
             });
         });
         AlertUtil.alertOther(sweetAlertDialog);
+    }
+    /**
+     * @do 重置密码
+     * @author liuhua
+     * @date 2020/3/11 9:24 PM
+     */
+    public void resetPassword() {
+        MainActivity mainActivity = ClassUtil.get(MainActivity.class);
+        View inflate = mainActivity.getLayoutInflater().inflate(R.layout.register, null);
+        SweetAlertDialog sweetAlertDialog = new SweetAlertDialog(ClassUtil.get(MainActivity.class), SweetAlertDialog.CUSTOM_IMAGE_TYPE)
+                .setTitleText("重置密码")
+                .setCustomView(inflate)
+                .setConfirmText("重置")
+                .setCancelText("取消");
+        sendSmsEvent(inflate,SmsTypeEnum.FIND.getValue());
+        sweetAlertDialog.setCancelable(false);
+        sweetAlertDialog.setConfirmClickListener(sweetAlertDialog1 -> {
+            TextView viewById = inflate.findViewById(R.id.phone);
+            String phone = viewById.getText().toString();
+            if(!phone.matches("^[1][0-9]{10}$")){
+                AlertUtil.toast("手机号码格式错误",Toast.LENGTH_SHORT);
+                return;
+            }
+            viewById = inflate.findViewById(R.id.code);
+            String code = viewById.getText().toString();
+            if(!code.matches("^[0-9]{4,6}$")){
+                AlertUtil.toast("验证码错误",Toast.LENGTH_SHORT);
+                return;
+            }
+            viewById = inflate.findViewById(R.id.password);
+            String password = viewById.getText().toString();
+            if(password.length()<6||password.length()>20){
+                AlertUtil.toast("密码格式需:6-20位",Toast.LENGTH_SHORT);
+                return;
+            }
+            viewById = inflate.findViewById(R.id.password2);
+            if(!password.equals(viewById.getText().toString())){
+                AlertUtil.toast("两次密码输入不一致",Toast.LENGTH_SHORT);
+                return;
+            }
+            SweetAlertDialog alertProcess = AlertUtil.alertProcess();
+            FormBody formBody = new FormBody.Builder().add("password", password).add("phone", phone).add("code",code).build();
+            HttpClientUtil.post("/show/user/resetPassword", formBody, new CallbackHandle(alertProcess) {
+                @Override
+                public void onSuccess(JSONObject jsonObject) {
+                    if (ResultCodeEnum.OK.getValue().equals(jsonObject.getInteger("code"))) {
+                        AlertUtil.toast("密码重置成功",Toast.LENGTH_SHORT);
+                    }else{
+                        AlertUtil.toast(jsonObject.getString("msg"),Toast.LENGTH_SHORT);
+                    }
+                }
+            });
+        });
+        AlertUtil.alertOther(sweetAlertDialog);
+        return;
+    }
+    /**
+     * @do 发送信息验证码
+     * @author liuhua
+     * @date 2020/3/21 4:21 PM
+     */
+    private void sendSmsEvent(View inflate,String type) {
+        inflate.findViewById(R.id.send_code).setOnClickListener(v -> {
+            v.setEnabled(false);
+            TextView viewById = inflate.findViewById(R.id.phone);
+            String phone = viewById.getText().toString();
+            if(!phone.matches("^[1][0-9]{10}$")){
+                AlertUtil.toast("手机号码格式错误", Toast.LENGTH_SHORT);
+                v.setEnabled(true);
+                return;
+            }
+            SweetAlertDialog alertProcess = AlertUtil.alertProcess("发送中");
+            FormBody formBody = new FormBody.Builder().add("phone", phone).add("type",type).build();
+            HttpClientUtil.post("/show/sms/sendSmsCode", formBody, new CallbackHandle(alertProcess) {
+                @Override
+                public void onSuccess(JSONObject jsonObject) {
+                    if(!ResultCodeEnum.OK.getValue().equals(jsonObject.getInteger("code"))){
+                        AlertUtil.toast(jsonObject.getString("msg"),Toast.LENGTH_SHORT);
+                        HandleMessage handleMessage = ClassUtil.get(HandleMessage.class);
+                        Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.CALL_BACK.getValue());
+                        message.obj = new Object[]{UserService.class,v,0};
+                        message.getData().putString("method","smsCodeTime");
+                        handleMessage.sendMessage(message);
+                        return;
+                    }
+                    AlertUtil.toast("发送成功",Toast.LENGTH_SHORT);
+                    HandleMessage handleMessage = ClassUtil.get(HandleMessage.class);
+                    Message message = Message.obtain(handleMessage, CountDownMsgTypeEnum.CALL_BACK.getValue());
+                    message.obj = new Object[]{UserService.class,v,60};
+                    message.getData().putString("method","smsCodeTime");
+                    handleMessage.sendMessage(message);
+                }
+
+                @Override
+                public void onFailure(@NotNull Call call, @NotNull IOException e) {
+                    super.onFailure(call, e);
+                    v.setActivated(true);
+                }
+            });
+        });
     }
 }

@@ -96,4 +96,15 @@ public class SocketService {
     public boolean isOnline(){
         return socket!=null&&socket.connected();
     }
+    /**
+     * @do 断开连接
+     * @author liuhua
+     * @date 2020/3/21 3:38 PM
+     */
+    public void disConnect() {
+        if(socket!=null){
+            //先断开之前连接
+            socket.disconnect();
+        }
+    }
 }

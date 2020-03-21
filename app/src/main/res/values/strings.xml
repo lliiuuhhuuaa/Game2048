@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">六画GAME</string>
+    <string name="app_name">六画游戏</string>
     <string name="start_game">开始游戏</string>
     <string name="logo_text">2048</string>
     <string name="score_text">分数:</string>

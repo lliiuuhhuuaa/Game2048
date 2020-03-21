@@ -5,10 +5,10 @@
     tools:showIn="navigation_view">
 
     <group android:checkableBehavior="single" >
-<!--        <item-->
-<!--            android:id="@+id/update_password"-->
-<!--            android:icon="@mipmap/password"-->
-<!--            android:title="修改密码" />-->
+        <item
+            android:id="@+id/update_password"
+            android:icon="@mipmap/password"
+            android:title="修改密码" />
         <item
             android:id="@+id/ranking"
             android:icon="@mipmap/ranking"

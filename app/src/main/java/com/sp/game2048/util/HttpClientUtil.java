@@ -1,11 +1,8 @@
 package com.sp.game2048.util;
 
-import android.content.Context;
 import android.util.Log;
 
-import com.sp.game2048.MainActivity;
 import com.sp.game2048.data.SQLiteData;
-import com.sp.game2048.entity.PhoneInfo;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -27,7 +24,6 @@ import okhttp3.Response;
  * @author lh
  */
 public class HttpClientUtil {
-    public static PhoneInfo phoneInfo = new PhoneInfo();
     private static final String TAG = "HttpClientUtil";
     public enum RequestTypeEnum {
         POST("post"), // post

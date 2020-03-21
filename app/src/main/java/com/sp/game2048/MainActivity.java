@@ -97,9 +97,9 @@ public class MainActivity extends AppCompatActivity {
                     AlertUtil.toast("退出成功",Toast.LENGTH_SHORT);
                     drawer.closeDrawers();
                     break;
-//                case R.id.update_password:
-//                    ClassUtil.get(UserService.class).updatePassword();
-//                    break;
+                case R.id.update_password:
+                    ClassUtil.get(UserService.class).updatePassword();
+                    break;
                 case R.id.ranking:
                     drawer.closeDrawers();
                     ClassUtil.get(GameService.class).showRankingList();
@@ -137,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
      */
     private void requestPermission() {
         List<PermissionItem> permissionItems = new ArrayList<>();
-        permissionItems.add(new PermissionItem(Manifest.permission.READ_PHONE_STATE, "手机信息", R.drawable.permission_ic_phone));
+       // permissionItems.add(new PermissionItem(Manifest.permission.READ_PHONE_STATE, "手机信息", R.drawable.permission_ic_phone));
         HiPermission.create(MainActivity.this)
                 .title("权限申请")
                 .msg("为了拥有更好的体验,请允许以下权限")
@@ -205,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences userInfo = getSharedPreferences("UserInfo", MODE_PRIVATE);
         JSONObject jsonObject = JSONObject.parseObject(userInfo.getString("userInfo","{}"));
         if(jsonObject.getLong("userId")==null){
-            ClassUtil.get(UserService.class).login();
+            ClassUtil.get(UserService.class).register();
         }else{
             drawer.openDrawer(GravityCompat.START);
             //显示用户信息

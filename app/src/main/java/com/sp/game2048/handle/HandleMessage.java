@@ -175,8 +175,14 @@ public class HandleMessage extends Handler {
             try {
                 assert methodName != null;
                 if(objects.length>1) {
-                    Method method = service.getClass().getMethod(methodName, objects[1].getClass());
-                    method.invoke(service,objects[1]);
+                    Class[] clazzs = new Class[objects.length-1];
+                    Object[] objs = new Object[objects.length-1];
+                    for (int i = 1; i < objects.length; i++) {
+                        clazzs[i-1] = objects[i].getClass();
+                        objs[i-1] = objects[i];
+                    }
+                    Method method = service.getClass().getMethod(methodName, clazzs);
+                    method.invoke(service,objs);
                 }else{
                     Method method = service.getClass().getMethod(methodName);
                     method.invoke(service);

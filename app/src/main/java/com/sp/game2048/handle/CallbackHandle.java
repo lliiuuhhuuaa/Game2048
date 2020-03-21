@@ -32,7 +32,11 @@ public abstract class CallbackHandle implements Callback {
     public void onFailure(@NotNull Call call, @NotNull IOException e) {
         Log.e(TAG, "onFailure: ",e );
         if(alertProcess!=null){
-            alertProcess.cancel();
+            try {
+                alertProcess.cancel();
+            }catch (Exception ex){
+                ex.printStackTrace();
+            }
         }
         AlertUtil.alertError("服务连接错误");
     }
@@ -40,7 +44,11 @@ public abstract class CallbackHandle implements Callback {
     @Override
     public void onResponse(@NotNull Call call, @NotNull Response response){
         if(alertProcess!=null){
-            alertProcess.cancel();
+            try {
+                alertProcess.cancel();
+            }catch (Exception ex){
+                ex.printStackTrace();
+            }
         }
         try {
             JSONObject jsonObject = JSONObject.parseObject(response.body().string());
