@@ -161,7 +161,6 @@ public class UserService {
             AlertUtil.toast("取消了登陆,将不能使用部分功能", Toast.LENGTH_SHORT);
         });
         sweetAlertDialog.setConfirmClickListener(sweetAlertDialog1 -> {
-            sweetAlertDialog1.cancel();
             TextView viewById = inflate.findViewById(R.id.phone);
             String phone = viewById.getText().toString();
             if(!phone.matches("^[1][0-9]{10}$")){
@@ -182,6 +181,7 @@ public class UserService {
                     if (ResultCodeEnum.OK.getValue().equals(jsonObject.getInteger("code"))) {
                         UserUtil.saveToken(jsonObject.getString("data"));
                         AlertUtil.toast("登陆成功",Toast.LENGTH_SHORT);
+                        sweetAlertDialog1.cancel();
                         init();
                     }else{
                         AlertUtil.toast(jsonObject.getString("msg"),Toast.LENGTH_SHORT);
@@ -312,6 +312,10 @@ public class UserService {
      * @date 2020/3/16 6:54 PM
      */
     public void updatePassword() {
+        if(!ClassUtil.get(SocketService.class).isOnline()){
+            AlertUtil.alertError("未登陆或网络未连接");
+            return ;
+        }
         MainActivity mainActivity = ClassUtil.get(MainActivity.class);
         View inflate = mainActivity.getLayoutInflater().inflate(R.layout.update_password, null);
         SweetAlertDialog sweetAlertDialog = new SweetAlertDialog(ClassUtil.get(MainActivity.class), SweetAlertDialog.CUSTOM_IMAGE_TYPE)
@@ -402,6 +406,7 @@ public class UserService {
                 public void onSuccess(JSONObject jsonObject) {
                     if (ResultCodeEnum.OK.getValue().equals(jsonObject.getInteger("code"))) {
                         AlertUtil.toast("密码重置成功",Toast.LENGTH_SHORT);
+                        sweetAlertDialog.cancel();
                     }else{
                         AlertUtil.toast(jsonObject.getString("msg"),Toast.LENGTH_SHORT);
                     }

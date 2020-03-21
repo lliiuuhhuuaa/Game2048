@@ -13,14 +13,14 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true"
         tools:replace="android:icon,android:theme,android:allowBackup">
-        <activity android:name=".MainActivity" android:screenOrientation="portrait">
+        <activity android:name=".MainActivity" android:screenOrientation="portrait" android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".GameActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".GameActivity" android:screenOrientation="portrait" android:launchMode="singleTask"/>
         <activity android:name=".ScoreHistoryActivity" android:screenOrientation="fullSensor"/>
     </application>
 

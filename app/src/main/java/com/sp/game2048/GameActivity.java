@@ -1,7 +1,6 @@
 package com.sp.game2048;
 
 import android.annotation.TargetApi;
-import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
@@ -45,7 +44,6 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
     private int total = 0;
     private boolean start = false;
     HandlerThread countDownThread = null;
-    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -85,11 +83,14 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
             linearLayout.setLayoutParams(layoutParams);
             layoutBox.addView(linearLayout);
             for(int j=0;j<5;j++){
-                button = new Button(this);
                 int id = this.getResources().getIdentifier(String.format("button_%d_%d", i, j), "id", this.getPackageName());
+                button = findViewById(id);
+                if(button==null){
+                    button = new Button(this);
+                    button.setTextSize(30);
+                    button.setOnTouchListener(this);
+                }
                 button.setLayoutParams(buttonParams);
-                button.setTextSize(30);
-                button.setOnTouchListener(this);
                 int val = numbs[Double.valueOf(Math.random()*numbs.length).intValue()];
                 button.setTag(new int[]{j,i,val});
                 text = String.valueOf(val);
@@ -332,6 +333,8 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
         SweetAlertDialog sweetAlertDialog = new SweetAlertDialog(this);
         sweetAlertDialog.setContentText("确定返回主页吗?");
         sweetAlertDialog.setCancelText("取消").setConfirmText("确定返回").setConfirmClickListener(sweetAlertDialog1 -> {
+            countDownThread.quitSafely();
+            sweetAlertDialog.cancel();
             finish();
         });
         AlertUtil.alertOther(sweetAlertDialog);
@@ -339,11 +342,11 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
 
     @Override
     public void recreate() {
+        super.recreate();
         final ProgressBar progressBar = findViewById(R.id.countDownProgressBar);
         progressBar.setProgress(61);
         final TextView textView = findViewById(R.id.countDownNumber);
         textView.setText("60");
-        super.recreate();
     }
 }
 

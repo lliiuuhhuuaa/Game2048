@@ -77,7 +77,7 @@ public class GameService {
      */
     public void showRankingList(){
         if(!ClassUtil.get(SocketService.class).isOnline()){
-            AlertUtil.alertError("未登陆,无法查看排行榜");
+            AlertUtil.alertError("未登陆或网络未连接,无法查看排行榜");
             return ;
         }
         SweetAlertDialog sweetAlertDialog = AlertUtil.alertProcess("正在加载...");
@@ -108,7 +108,7 @@ public class GameService {
      */
     public void showScoreHistory(){
         if(!ClassUtil.get(SocketService.class).isOnline()){
-            AlertUtil.alertError("未登陆,无法查看分数历史");
+            AlertUtil.alertError("未登陆或网络未连接,无法查看分数历史");
             return ;
         }
         SweetAlertDialog sweetAlertDialog = AlertUtil.alertProcess("正在加载...");

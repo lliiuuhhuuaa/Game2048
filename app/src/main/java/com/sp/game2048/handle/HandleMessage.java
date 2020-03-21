@@ -75,7 +75,6 @@ public class HandleMessage extends Handler {
             });
             dialog.findViewById(R.id.rePlay).setOnClickListener(v -> {
                 ClassUtil.get(GameActivity.class).recreate();
-                ClassUtil.get(GameActivity.class).recreate();
                 dialog.cancel();
             });
             dialog.findViewById(R.id.ranking_list).setOnClickListener(v -> {
